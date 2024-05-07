@@ -1,7 +1,7 @@
 # CognitiveRobotics
 Group 5 Final Project
 
-This is the readme - will be updated as we go! 
+This is the readme - will be updated as we go! yay
 
 Currently on the agenda:
 - Find a package for implementing POMDP
