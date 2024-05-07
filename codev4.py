@@ -1,9 +1,9 @@
 # Combo of v3 and bound calcualtion 
 
-# Explaination 
-'calculate_entropy_bounds' Method:It calculates the bounds using the simplified particles and weights for a given observation and action
-'calculate_bounds function': This is the differential entropy bounds function you provided. It It takes in the belief as a list of particle-weight tuples, along with the action and observation.
-'optimal_policy' Method: This method now uses the new calculate_entropy_bounds method to compute the bounds for each belief update.
+# # Explaination 
+# 'calculate_entropy_bounds' Method:It calculates the bounds using the simplified particles and weights for a given observation and action
+# 'calculate_bounds function': This is the differential entropy bounds function you provided. It It takes in the belief as a list of particle-weight tuples, along with the action and observation.
+# 'optimal_policy' Method: This method now uses the new calculate_entropy_bounds method to compute the bounds for each belief update.
 
 
 import numpy as np
