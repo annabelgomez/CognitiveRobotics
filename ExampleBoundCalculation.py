@@ -1,3 +1,13 @@
+# Explaination: Python implementation of the bounds for a given belief b
+# belief b: a list of tuples representing the set of particles {(x_i, w_i)}
+# action a: the action taken
+# observation z_k+1 : the next observation
+# P(x_i | x_j, a): the transition proabbility function 
+# P(z|x): the likelihood function 
+# m: the maximum value of the transition probability 
+# A*_k and A*_k+1 : the sets of particle indices for simplified beliefs
+
+
 import numpy as np
 
 def calculate_bounds(b, a, z_next, P_x_given_x_a, P_z_given_x, m, As_k, As_k_plus_1):
