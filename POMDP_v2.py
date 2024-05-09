@@ -1,6 +1,7 @@
 # This runs!!!!!!!!! (corrected version 5)
 
 import numpy as np
+import time 
 
 class ParticleFilter:
     def __init__(self, particles, weights, transition_std=0.1, observation_std=0.1):
@@ -63,12 +64,13 @@ class POMDP:
         best_action = None
         best_value = float('-inf')
 
+        sn = 100
         for action in self.actions:
             expected_value = 0
             for observation in self.observations:
                 pf_copy = ParticleFilter(self.particle_filter.particles.copy(), self.particle_filter.weights.copy(), self.particle_filter.transition_std, self.particle_filter.observation_std)
                 pf_copy.update(action, observation, pf_copy.transition_model, pf_copy.observation_model)
-                simplified_particles, simplified_weights = pf_copy.simplify(100)
+                simplified_particles, simplified_weights = pf_copy.simplify(an)
                 lb, ub = pf_copy.calculate_entropy_bounds(simplified_particles, simplified_weights, observation, action)
                 _, value = self.optimal_policy(horizon, depth + 1)
 
@@ -107,8 +109,9 @@ def calculate_bounds(particles, weights, action, z_next, transition_model, obser
     return lower_bound, upper_bound
 
 # Example usage
-initial_particles = np.random.randn(1000, 2)
-initial_weights = np.ones(1000) / 1000
+pn = 1000
+initial_particles = np.random.randn(pn, 2)
+initial_weights = np.ones(pn) / pn
 actions = [np.array([1, 0]), np.array([0, 1])]
 observations = [np.array([10, 10]), np.array([10, 11])]
 
