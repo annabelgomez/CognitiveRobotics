@@ -26,20 +26,20 @@ class ParticleFilter:
         simplified_weights /= np.sum(simplified_weights)
         return simplified_particles, simplified_weights, indices
 
-    def calculate_entropy_bounds(self, simplified_particles, simplified_weights, z_next, action):
+    def calculate_entropy_bounds(self, x_new, w_new, indices, observation, action, x_s_old, w_s_old):
         m = 1.0
-        As_k = set(range(len(self.particles)))
-        As_k_plus_1 = set(range(len(simplified_particles)))
 
         lower_bound, upper_bound = calculate_bounds(
-            self.particles, self.weights,
-            action, z_next,
-            self.transition_model,
+            x_new, w_new, 
+            indices, #need to code 
+            action, observation, #observation = z_next
+            self.transition_probability,
             self.observation_model,
             m,
-            As_k,
-            As_k_plus_1
+            x_s_old,
+            w_s_old
         )
+
         return lower_bound, upper_bound
 
     def transition_positions(self, x, a):
@@ -68,7 +68,7 @@ class POMDP:
         self.actions = actions
         self.observations = observations
 
-    def optimal_policy(self, horizon, depth=0):
+    def optimal_policy(self, horizon, depth=0, x_s_old, w_s_old):
         if depth == horizon:
             return None, 0
 
@@ -79,11 +79,11 @@ class POMDP:
         for action in self.actions:
             expected_value = 0
             for observation in self.observations:
-                pf_copy = ParticleFilter(self.particle_filter.particles.copy(), self.particle_filter.weights.copy(), self.particle_filter.transition_std, self.particle_filter.observation_std)
-                pf_copy.update(action, observation, pf_copy.transition_probability, pf_copy.observation_model)
-                simplified_particles, simplified_weights, indices = pf_copy.simplify(an)
-                lb, ub = pf_copy.calculate_entropy_bounds(simplified_particles, simplified_weights, observation, action)
-                _, value = self.optimal_policy(horizon, depth + 1)
+                pf_new = ParticleFilter(self.particle_filter.particles.copy(), self.particle_filter.weights.copy(), self.particle_filter.transition_std, self.particle_filter.observation_std)
+                pf_new.update(action, observation, pf_new.transition_probability, pf_new.observation_model)
+                x_s_new, w_s_new, indices = pf_new.simplify(100)
+                lb, ub = pf_new.calculate_entropy_bounds(pf_new.particles, pf_new.weights, indices, observation, action, x_s_old, w_s_old)
+                _, value = self.optimal_policy(horizon, depth + 1, x_s_new, w_s_new)
 
                 # Convert ub and value to floats
                 if isinstance(ub, np.ndarray) and ub.size == 1:
@@ -104,25 +104,25 @@ class POMDP:
 
         return best_action, best_value
 
-def calculate_bounds(particles, weights, action, z_next, transition_model, observation_model, m, As_k, As_k_plus_1):
+def calculate_bounds(x_new, w_new, indices, action, observation, transition_probability, observation_model, m, x_s_old, w_s_old):
     eps = 1e-10  # Small constant to prevent log(0)
     lower_bound, upper_bound = 0, 0
-    for i, (x_i, w_i) in enumerate(zip(particles, weights)):
-        P_z_x_i = observation_model(x_i, z_next) #P(z_k+1 | x_i_k+1)
-        if i not in As_k_plus_1:
-            lower_bound -= w_i * np.log(m * P_z_x_i + eps) #w_i = w_i_k+1 ?? 
+    for i, (x_i, w_i) in enumerate(zip(x_new, w_new)):
+        P_z_x_i = observation_model(x_i, observation) #P(z_k+1 | x_i_k+1)
+        if i not in indices:
+            lower_bound -= w_i * np.log(m * P_z_x_i + eps) #w_i = w_i_k+1 
         else:
-            #transition_model(x_i, x_j) = P(x_i | x_j, a_k)
-            sum_term = sum(transition_model(x_i, x_j) * w_j for w_j in weights) #this is not right 
-            #need new transition model that gives probabilities given past states + action
-            #we need all the weights from step k (w_j_k) in the input?? 
-
+            #transition_probability(x_i, x_j) = P(x_i | x_j, a_k)
+            sum_term = sum(transition_probability(x_i, x_j, action) * w_j for x_j, w_j in zip(x_s_old, w_s_old))
             lower_bound -= w_i * np.log(P_z_x_i * sum_term + eps)
     #here we need to sum over the PREVIOUS state k (j in As_k)
-    for x_i, w_i in zip(particles, weights):
-        sum_term = sum(observation_model(x_j, z_next) * transition_model(x_j, x_i) * w_j for j, (x_j, w_j) in enumerate(zip(particles, weights)) if j in As_k)
+    for x_i, w_i in zip(x_new, w_new):
+        sum_term = sum(observation_model(x_j, observation) * transition_probability(x_i, x_j, action) * w_j for x_j, w_j in zip(x_s_old, w_s_old))
         upper_bound -= w_i * np.log(sum_term + eps)
-    return lower_bound, upper_bound
+
+    a = np.log(sum(observation_model(x_i, observation) * w_i for x_i, w_i in zip(x_new, w_new)))
+
+    return lower_bound + a, upper_bound + a
 
 # Example usage
 pn = 1000
