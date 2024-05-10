@@ -11,8 +11,8 @@ class ParticleFilter:
         self.transition_std = transition_std
         self.observation_std = observation_std
 
-    def update(self, action, observation, transition_model, observation_model):
-        self.particles = transition_model(self.particles, action)
+    def update(self, action, observation, transition_positions, observation_model):
+        self.particles = transition_positions(self.particles, action)
         likelihoods = observation_model(self.particles, observation)
         self.weights *= likelihoods
         if np.sum(self.weights) == 0:
@@ -42,7 +42,11 @@ class ParticleFilter:
         )
         return lower_bound, upper_bound
 
-    def transition_model(self, x_next, x_prev, a): #NEED A VERSION OF THIS SO THAT IT GIVES US P(x_k+1 | x_k, a_k)
+    def transition_positions(self, x, a):
+        noise = np.random.normal(0, self.transition_std, x.shape)
+        return x + a + noise
+    
+    def transition_probability(self, x_next, x_prev, a): #NEED A VERSION OF THIS SO THAT IT GIVES US P(x_k+1 | x_k, a_k)
         # Mean of the distribution
         mean = x_prev + a
         # Standard deviation of the distribution
@@ -76,7 +80,7 @@ class POMDP:
             expected_value = 0
             for observation in self.observations:
                 pf_copy = ParticleFilter(self.particle_filter.particles.copy(), self.particle_filter.weights.copy(), self.particle_filter.transition_std, self.particle_filter.observation_std)
-                pf_copy.update(action, observation, pf_copy.transition_model, pf_copy.observation_model)
+                pf_copy.update(action, observation, pf_copy.transition_probability, pf_copy.observation_model)
                 simplified_particles, simplified_weights, indices = pf_copy.simplify(an)
                 lb, ub = pf_copy.calculate_entropy_bounds(simplified_particles, simplified_weights, observation, action)
                 _, value = self.optimal_policy(horizon, depth + 1)
