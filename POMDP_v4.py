@@ -72,6 +72,12 @@ class POMDP:
         if depth == horizon:
             return [], 0
 
+        if x_s_old == None:
+            x_s_old = self.particle_filter.particles.copy()
+
+        if w_s_old == None:
+            w_s_old = self.particle_filter.weights.copy()
+
         best_value = float('-inf')
         best_action_sequence = []
 
