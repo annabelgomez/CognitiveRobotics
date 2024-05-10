@@ -68,15 +68,9 @@ class POMDP:
         self.actions = actions
         self.observations = observations
 
-    def optimal_policy(self, horizon, depth=0, x_s_old=None, w_s_old=None):
+    def optimal_policy(self, horizon, x_s_old, w_s_old, depth=0):
         if depth == horizon:
             return [], 0
-
-        if x_s_old == None:
-            x_s_old = self.particle_filter.particles.copy()
-
-        if w_s_old == None:
-            w_s_old = self.particle_filter.weights.copy()
 
         best_value = float('-inf')
         best_action_sequence = []
@@ -90,7 +84,7 @@ class POMDP:
                 pf_new.update(action, observation, pf_new.transition_probability, pf_new.observation_model)
                 x_s_new, w_s_new, indices = pf_new.simplify(sn)
                 lb, ub = pf_new.calculate_entropy_bounds(pf_new.particles, pf_new.weights, indices, observation, action, x_s_old, w_s_old)
-                sub_actions, value = self.optimal_policy(horizon, depth + 1, x_s_new, w_s_new)
+                sub_actions, value = self.optimal_policy(horizon, x_s_new, w_s_new, depth + 1)
 
                 # Convert ub and value to floats
                 if isinstance(ub, np.ndarray) and ub.size == 1:
@@ -140,5 +134,5 @@ actions = [np.array([1, 0]), np.array([0, 1])]
 observations = [np.array([10, 10]), np.array([10, 11])]
 
 pomdp = POMDP(initial_particles, initial_weights, actions, observations)
-action, value = pomdp.optimal_policy(horizon=3)
+action, value = pomdp.optimal_policy(3, initial_particles, initial_weights)
 print("Optimal Action:", action, "Expected Value:", value)
