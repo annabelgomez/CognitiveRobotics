@@ -81,7 +81,7 @@ class POMDP:
 
             for observation in self.observations:
                 pf_new = ParticleFilter(self.particle_filter.particles.copy(), self.particle_filter.weights.copy(), self.particle_filter.transition_std, self.particle_filter.observation_std)
-                pf_new.update(action, observation, pf_new.transition_probability, pf_new.observation_model)
+                pf_new.update(action, observation, pf_new.transition_positions, pf_new.observation_model)
                 x_s_new, w_s_new, indices = pf_new.simplify(sn)
                 lb, ub = pf_new.calculate_entropy_bounds(pf_new.particles, pf_new.weights, indices, observation, action, x_s_old, w_s_old)
                 sub_actions, value = self.optimal_policy(horizon, x_s_new, w_s_new, depth + 1)
@@ -122,7 +122,7 @@ def calculate_bounds(x_new, w_new, indices, action, observation, transition_prob
         sum_term = sum(observation_model(x_j, observation) * transition_probability(x_i, x_j, action) * w_j for x_j, w_j in zip(x_s_old, w_s_old))
         upper_bound -= w_i * np.log(sum_term + eps)
 
-    a = np.log(sum(observation_model(x_i, observation) * w_i for x_i, w_i in zip(x_new, w_new)))
+    a = np.log(sum(observation_model(x_i, observation) * w_i for x_i, w_i in zip(x_new, w_new)) + eps)
 
     return lower_bound + a, upper_bound + a
 
