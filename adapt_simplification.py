@@ -13,26 +13,79 @@ def adapt_simplification(T, s_i):
         lb, ub = calculate_bounds(
             T.particles, T.weights, 
             indices, 
-            T.prev_action, T.prev_observation, #observation = z_next
+            T.prev_action, T.prev_observation,
             ParticleFilter.transition_probability,
             ParticleFilter.observation_model,
             T.parent.particles,
             T.parent.weights
         )
+        T.set_bounds(lb=lb, ub=ub)
         return lb, ub
 
-    for action in T.actions:
-        #need to get mean over the observations for this action
+    action_mean_bounds = compare_actions(T, s_i)
+    best_action = choose_best_action(action_mean_bounds)
+
+    if best_action == False:
+        #increase s and repeat.
+        adapt_simplification(T, s_i + 1)
+    else:
+        if T.is_head_node() == True:
+            lb = 0
+            ub = 0
+        else:
+        #get the bounds for this node 
+        #reward of going from parent node to
+        #this node via prev_action and prev_observation
+            lb, ub = calculate_bounds(
+                T.particles, T.weights, 
+                indices, 
+                T.prev_action, T.prev_observation,
+                ParticleFilter.transition_probability,
+                ParticleFilter.observation_model,
+                T.parent.particles,
+                T.parent.weights
+            )
+        LB = lb + LB
+        UB = ub + UB
+        T.set_bounds(LB, UB)
+        return LB, UB, action
+
+def compare_actions(T, s_i):
+    action_mean_bounds = {}
+    for action in T.actions:    
+        #mean future bounds over possible observations for this action
         lb_arr = []
         ub_arr = []
-        for child in T.get_children_by_action(action):
-            actions, LB, UB = adapt_simplification(child, s_i)
+        child_nodes = T.get_children_by_action(action)
+        for child in child_nodes:
+            LB, UB = adapt_simplification(child, s_i)
             lb_arr.append(LB)
             ub_arr.append(UB)
         mean_lb = sum(lb_arr)/len(lb_arr)
         mean_ub = sum(ub_arr)/len(ub_arr)
+        action_mean_bounds[action] = {'lb': mean_lb, 'ub': mean_ub}
+    return action_mean_bounds
 
+def choose_best_action(action_mean_bounds):
+    """
+    action_mean_bounds[action] = {'lb': mean_lb, 'ub': mean_ub} 
+    Prune branches
+    Return two terms:
+    1st term: Boolean; True if len is 1
+    2nd term: new list of pruned_children
+    """
+    LB_star = max(action_mean_bounds[action]['lb'] for action in action_mean_bounds.keys())
 
+    pruned_actions = []
+    for action in action_mean_bounds.keys():
+        if LB_star > action_mean_bounds[action]['ub']:
+            print("Pruning child")
+        else:
+            pruned_actions.append(action_mean_bounds[action])
+    if len(pruned_actions) == 1:
+        return pruned_actions[0]
+    else:
+        return False
 
 def calculate_bounds(x_new, w_new, indices, action, observation, transition_probability, observation_model, x_s_old, w_s_old):
     m = 1.0

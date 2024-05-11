@@ -1,9 +1,8 @@
 import numpy as np
 from scipy.stats import norm
 
-
 class Node:
-    def __init__(self, particles, weights, parent, prev_action=None, prev_observation=None):
+    def __init__(self, particles, weights, parent=None, prev_action=None, prev_observation=None):
         self.particles = particles
         self.weights = weights
 
@@ -17,14 +16,56 @@ class Node:
         self.children = []
         self.actions = [0, 1]
         self.observations = [10, 11]
-
-        self.prev_action = prev_action
-        self.prev_observation = self.prev_observation
+        
+        if prev_action:
+            self.prev_action = prev_action
+        if prev_observation:
+            self.prev_observation = prev_observation
 
         self.child_dict = {
             0 : {},
             1: {}
         }
+
+        self.bounds = None
+
+    def prune_children(self, pruned_children):
+        new_child_dict = {}
+        for child in pruned_children:
+            prev_action = child.prev_action
+            prev_observation = child.prev_observation
+            if not new_child_dict[prev_action]:
+                new_child_dict[prev_action] = {}
+            new_child_dict[prev_action][prev_observation] = child
+        self.child_dict = new_child_dict
+        self.children = pruned_children
+
+    def set_bounds(self, lb, ub):
+        self.bounds = {'lb': lb, 'ub': ub}
+    
+    def get_lower_bound(self):
+        if self.bounds:
+            if self.bounds['ub']:
+                return self.bounds['ub']
+            else:
+                return False
+        else:
+            return False
+    
+    def get_lower_bound(self):
+        if self.bounds:
+            if self.bounds['lb']:
+                return self.bounds['lb']
+            else:
+                return False
+        else:
+            return False
+
+    def is_head_node(self):
+        if self.head_node == True:
+            return True
+        else:
+            return False
 
     def add_child(self, child, action, observation):
         child.prev_action = action
@@ -129,11 +170,11 @@ class ParticleFilter:
             norm = np.linalg.norm(x - z, axis=1)
         return np.exp(-0.5 * norm ** 2 / self.observation_std ** 2)
     
-# pn = 10
-# initial_particles = np.random.randn(pn, 1)
-# initial_weights = np.ones(pn) / pn
+pn = 10
+initial_particles = np.random.randn(pn, 1)
+initial_weights = np.ones(pn) / pn
 
-# T = BeliefTree(3, initial_particles, initial_weights)
-# T.construct_belief_tree()
-# print(T.tree.get_all_children_p())
+T = BeliefTree(3, initial_particles, initial_weights)
+T.construct_belief_tree()
+print(T.tree.get_all_children_p())
 
