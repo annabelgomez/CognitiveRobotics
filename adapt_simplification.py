@@ -7,31 +7,52 @@ def find_optimal_policy(T):
     return adapt_simplification(T, s)
 
 def adapt_simplification(T, s_i):
-    pf_new = ParticleFilter(T.particle_filter.particles.copy(), T.particle_filter.weights.copy())
-    x_s_new, w_s_new, indices = pf_new.simplify(s_i)
-    if T.isleaf() == True:
+    print("Adapt Simplification Running", "s_i:", s_i)
+    pf_new = ParticleFilter(T.particles.copy(), T.weights.copy())
+    _, _, indices = pf_new.simplify(s_i)
+
+    #if we are at the bottom of the tree (T is leaf), then return the bounds of leaf T.
+    if T.is_leaf() == True:
+        print("T.is_leaf() == True")
         lb, ub = calculate_bounds(
             T.particles, T.weights, 
             indices, 
             T.prev_action, T.prev_observation,
-            ParticleFilter.transition_probability,
-            ParticleFilter.observation_model,
             T.parent.particles,
             T.parent.weights
         )
         T.set_bounds(lb=lb, ub=ub)
-        return lb, ub
+        return lb, ub, []
+    print("T.is_leaf() == False")
+    #Get here if T is a subtree and has children.
+    child_nodes = compare_children(T, s_i)
+    #prune_children prunes the tree if possible and returns the optimal action if
+    #one is found.
+    optimal_child, child_action_branch = prune_children(T)
 
-    action_mean_bounds = compare_actions(T, s_i)
-    best_action = choose_best_action(action_mean_bounds)
-
-    if best_action == False:
+    #optimal_child returns False if the bounds of the actions are overlapping.
+    if optimal_child == False:
         #increase s and repeat.
-        adapt_simplification(T, s_i + 1)
+        adapt_simplification( T , s_i+1 )
+
+    #if best_action returns the optimal action:
     else:
+        LB = optimal_child.get_lower_bound()
+        UB = optimal_child.get_upper_bound()
+
+        #get optimal action for node T
+        best_action = optimal_child.prev_action
+
+        print("optimal_child", optimal_child)
+        print("child_action_branch", child_action_branch)
+        new_action_branch = [best_action] + child_action_branch
+        T.set_optimal_action(new_action_branch)
+
+        # if T is the head node then we're done and we can return the optimal 
+        # action sequence and the bounds on the associated rewards.
         if T.is_head_node() == True:
-            lb = 0
-            ub = 0
+            T.set_bounds(LB, UB)
+            return LB, UB, new_action_branch
         else:
         #get the bounds for this node 
         #reward of going from parent node to
@@ -40,70 +61,114 @@ def adapt_simplification(T, s_i):
                 T.particles, T.weights, 
                 indices, 
                 T.prev_action, T.prev_observation,
-                ParticleFilter.transition_probability,
-                ParticleFilter.observation_model,
                 T.parent.particles,
                 T.parent.weights
             )
-        LB = lb + LB
-        UB = ub + UB
-        T.set_bounds(LB, UB)
-        return LB, UB, action
+            LB = lb + LB
+            UB = ub + UB
+            T.set_bounds(LB, UB)
+            print(LB, UB, new_action_branch)
+            return LB, UB, new_action_branch
 
-def compare_actions(T, s_i):
-    action_mean_bounds = {}
-    for action in T.actions:    
+def compare_children(T, s_i):
+    """
+    Inputs: a tree/subtree T and sample size s_i,
+    T - populated instance of BeliefTree
+    s_i - integer
+    Outputs:
+    mean_bounds - nested dict that stores the upper/lower bounds for each action.
+                            {'lb': lb, 'ub': ub }
+    """
+    print("compare_children running")
+
+    # action_mean_bounds = {}
+    # for action in T.actions:    
         #mean future bounds over possible observations for this action
-        lb_arr = []
-        ub_arr = []
-        child_nodes = T.get_children_by_action(action)
-        for child in child_nodes:
-            LB, UB = adapt_simplification(child, s_i)
-            lb_arr.append(LB)
-            ub_arr.append(UB)
-        mean_lb = sum(lb_arr)/len(lb_arr)
-        mean_ub = sum(ub_arr)/len(ub_arr)
-        action_mean_bounds[action] = {'lb': mean_lb, 'ub': mean_ub}
-    return action_mean_bounds
+    mean_bounds = []
+    child_nodes = T.get_all_children()
+    print("iterating through children")
+    for child in child_nodes:
+        print("iterating to child", child)
+        # print(adapt_simplification(child, s_i))
+        LB, UB, _ = adapt_simplification(child, s_i)
+        child.set_bounds(lb=LB, ub=UB)
+        print(LB, UB)
+        # mean_bounds.append({'lb': LB, 'ub': UB})
 
-def choose_best_action(action_mean_bounds):
-    """
-    action_mean_bounds[action] = {'lb': mean_lb, 'ub': mean_ub} 
-    Prune branches
-    Return two terms:
-    1st term: Boolean; True if len is 1
-    2nd term: new list of pruned_children
-    """
-    LB_star = max(action_mean_bounds[action]['lb'] for action in action_mean_bounds.keys())
+    return child_nodes #, mean_bounds
 
-    pruned_actions = []
-    for action in action_mean_bounds.keys():
-        if LB_star > action_mean_bounds[action]['ub']:
-            print("Pruning child")
+def prune_children(T):#, mean_bounds):
+    """
+    Input: action_mean_bounds: nested dict (see compare_children for structure/description)
+
+    Output:
+        False - if bounds are overlapping.
+        optimal action - if bounds are not overlapping.
+    """
+    print("prune_children running")
+    child_nodes = T.get_all_children()
+    LB_star = max(child.get_lower_bound() for child in child_nodes)
+    print("LB_star", LB_star)
+    pruned_children = []
+    for child in child_nodes:
+        if LB_star > child.get_upper_bound():
+            print("Removing child",child)
         else:
-            pruned_actions.append(action_mean_bounds[action])
-    if len(pruned_actions) == 1:
-        return pruned_actions[0]
+            print("Adding to pruned_children", child)
+            pruned_children.append(child)
+    T.update_children(pruned_children)
+    if len(pruned_children) == 1:
+        optimal_child = pruned_children[0]
+        action_branch = optimal_child.get_optimal_action()
+        return optimal_child, action_branch
     else:
-        return False
+        return False, None
 
-def calculate_bounds(x_new, w_new, indices, action, observation, transition_probability, observation_model, x_s_old, w_s_old):
+def calculate_bounds(x_new, w_new, indices, action, observation, x_s_old, w_s_old):
+    print("calculate_bounds running")
+    # print("len(x_new)", len(x_new))
+    # print("indices", indices)
+    pf = ParticleFilter(x_new.copy(), w_new.copy())
     m = 1.0
     eps = 1e-10  # Small constant to prevent log(0)
     lower_bound, upper_bound = 0, 0
-    for i, (x_i, w_i) in enumerate(zip(x_new, w_new)):
-        P_z_x_i = observation_model(x_i, observation) #P(z_k+1 | x_i_k+1)
-        if i not in indices:
-            lower_bound -= w_i * np.log(m * P_z_x_i + eps) #w_i = w_i_k+1 
-        else:
-            #transition_probability(x_i, x_j) = P(x_i | x_j, a_k)
-            sum_term = sum(transition_probability(x_i, x_j, action) * w_j for x_j, w_j in zip(x_s_old, w_s_old))
-            lower_bound -= w_i * np.log(P_z_x_i * sum_term + eps)
-    #here we need to sum over the PREVIOUS state k (j in As_k)
-    for x_i, w_i in zip(x_new, w_new):
-        sum_term = sum(observation_model(x_j, observation) * transition_probability(x_i, x_j, action) * w_j for x_j, w_j in zip(x_s_old, w_s_old))
-        upper_bound -= w_i * np.log(sum_term + eps)
+    if len(indices) >= len(x_new):
+        for i, (x_i, w_i) in enumerate(zip(x_new, w_new)):
+            term = w_i * np.log(pf.observation_model(x_i, observation) * sum(pf.transition_probability(x_i, x_j, action) * w_j for x_j, w_j in zip(x_s_old, w_s_old)))
+            lower_bound -= term
+            upper_bound -= term
+    else:
+        for i, (x_i, w_i) in enumerate(zip(x_new, w_new)):
+            P_z_x_i = pf.observation_model(x_i, observation) #P(z_k+1 | x_i_k+1)
+            if i not in indices:
+                # print("w_i * np.log(m * P_z_x_i + eps)",w_i * np.log(m * P_z_x_i + eps))
+                lower_bound -= w_i * np.log(m * P_z_x_i + eps) #w_i = w_i_k+1 
+            else:
+                #transition_probability(x_i, x_j) = P(x_i | x_j, a_k)
+                sum_term = sum(pf.transition_probability(x_i, x_j, action) * w_j for x_j, w_j in zip(x_s_old, w_s_old))
+                lower_bound -= w_i * np.log(P_z_x_i * sum_term + eps)
+                # print("w_i * np.log(P_z_x_i * sum_term + eps)", w_i * np.log(P_z_x_i * sum_term + eps))
+        #here we need to sum over the PREVIOUS state k (j in As_k)
+        for x_i, w_i in zip(x_new, w_new):
+            sum_term = sum(pf.observation_model(x_j, observation) * pf.transition_probability(x_i, x_j, action) * w_j for x_j, w_j in zip(x_s_old, w_s_old))
+            upper_bound -= w_i * np.log(sum_term + eps)
 
-    a = np.log(sum(observation_model(x_i, observation) * w_i for x_i, w_i in zip(x_new, w_new)) + eps)
-
+    a = np.log(sum(pf.observation_model(x_i, observation) * w_i for x_i, w_i in zip(x_new, w_new)) + eps)
+    # print("lower_bound",lower_bound)
+    # print("upper_bound",upper_bound)
+    # print("a",a)
+    if upper_bound < lower_bound:
+        lower_bound = upper_bound
     return lower_bound + a, upper_bound + a
+
+
+pn = 10
+initial_particles = np.random.randn(pn, 1)
+initial_weights = np.ones(pn) / pn
+print("initial_weights", initial_weights)
+
+T = BeliefTree(2, initial_particles, initial_weights)
+T.construct_belief_tree()
+
+find_optimal_policy(T.head_node)
+
