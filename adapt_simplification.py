@@ -3,7 +3,7 @@ from scipy.stats import norm
 from belief_tree import Node, BeliefTree, ParticleFilter
 
 def find_optimal_policy(T):
-    s = 5
+    s = 10
     return adapt_simplification(T, s)
 
 def adapt_simplification(T, s_i):
@@ -33,7 +33,7 @@ def adapt_simplification(T, s_i):
     #optimal_child returns False if the bounds of the actions are overlapping.
     if optimal_child == False:
         #increase s and repeat.
-        adapt_simplification( T , s_i+1 )
+        return adapt_simplification( T , s_i+10 )
 
     #if best_action returns the optimal action:
     else:
@@ -134,7 +134,7 @@ def calculate_bounds(x_new, w_new, indices, action, observation, x_s_old, w_s_ol
     lower_bound, upper_bound = 0, 0
     if len(indices) >= len(x_new):
         for i, (x_i, w_i) in enumerate(zip(x_new, w_new)):
-            term = w_i * np.log(pf.observation_model(x_i, observation) * sum(pf.transition_probability(x_i, x_j, action) * w_j for x_j, w_j in zip(x_s_old, w_s_old)))
+            term = w_i * np.log(pf.observation_model(x_i, observation) * sum(pf.transition_probability(x_i, x_j, action) * w_j for x_j, w_j in zip(x_s_old, w_s_old)) + eps)
             lower_bound -= term
             upper_bound -= term
     else:
@@ -160,15 +160,3 @@ def calculate_bounds(x_new, w_new, indices, action, observation, x_s_old, w_s_ol
     if upper_bound < lower_bound:
         lower_bound = upper_bound
     return lower_bound + a, upper_bound + a
-
-
-pn = 10
-initial_particles = np.random.randn(pn, 1)
-initial_weights = np.ones(pn) / pn
-print("initial_weights", initial_weights)
-
-T = BeliefTree(2, initial_particles, initial_weights)
-T.construct_belief_tree()
-
-find_optimal_policy(T.head_node)
-

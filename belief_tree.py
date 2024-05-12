@@ -44,6 +44,9 @@ class Node:
 
     def set_bounds(self, lb, ub):
         self.bounds = {'lb': lb, 'ub': ub}
+
+    def get_bounds_as_tuple(self):
+        return (round(self.get_lower_bound(), 2), round(self.get_upper_bound(),2))
     
     def get_upper_bound(self):
         if self.bounds:
@@ -191,12 +194,4 @@ class ParticleFilter:
         else:  # Otherwise, use axis 1 norm for multi-dimensional x
             norm = np.linalg.norm(x - z, axis=1)
         return np.exp(-0.5 * norm ** 2 / self.observation_std ** 2)
-    
-# pn = 10
-# initial_particles = np.random.randn(pn, 1)
-# initial_weights = np.ones(pn) / pn
-
-# T = BeliefTree(3, initial_particles, initial_weights)
-# T.construct_belief_tree()
-# print(T.head_node.get_all_children_p())
 
