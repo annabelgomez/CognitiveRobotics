@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.stats import norm
+import random
 
 class Node:
     def __init__(self, particles, weights, parent=None, prev_action=None, prev_observation=None):
@@ -29,6 +30,8 @@ class Node:
 
         self.bounds = None
         self.optimal_action = None
+
+        self.is_risky = False
 
     def update_children(self, pruned_children):
         new_child_dict = {}
@@ -71,6 +74,15 @@ class Node:
             return True
         else:
             return False
+    
+    def get_risky_state(self):
+        if self.is_risky == True:
+            return True
+        else:
+            return False
+
+    def set_risky_state(self):
+        self.is_risky = True
 
     def add_child(self, child, action, observation):
         child.prev_action = action
@@ -99,13 +111,17 @@ class Node:
         return child_particles
 
     def populate_children(self):
+        risky_index = random.randint(0,3)
+        iter = 0
         for action in self.actions:
             for observation in self.observations:
                 pf = ParticleFilter(self.particles.copy(), self.weights.copy())
                 pf.update(action, observation)
-                # print("updated", "action",action, "observation",observation)
                 child = Node(pf.particles.copy(), pf.weights.copy(), self)
+                if iter == risky_index:
+                    child.set_risky_state()
                 self.add_child(child, action, observation)
+                iter+=1
     
     def is_leaf(self):
         if len(self.children) == 0:
@@ -118,7 +134,6 @@ class Node:
             return self.optimal_action
         else:
             if self.is_leaf() == True:
-                print("leaf")
                 return []
             else:
                 print("No optimal action set")

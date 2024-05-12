@@ -14,7 +14,6 @@ def adapt_simplification(T, s_i):
     Adapt simplification function. Recurses to simplify tree and return
     optimal action sequence and the bounds.
     """
-    print("Adapt Simplification Running", "s_i:", s_i)
     pf_new = ParticleFilter(T.particles.copy(), T.weights.copy())
     _, _, indices = pf_new.simplify(s_i)
 
@@ -47,9 +46,6 @@ def adapt_simplification(T, s_i):
 
         #get optimal action for node T
         best_action = optimal_child.prev_action
-
-        print("optimal_child", optimal_child)
-        print("child_action_branch", child_action_branch)
         new_action_branch = [best_action] + child_action_branch
         T.set_optimal_action(new_action_branch)
 
@@ -72,7 +68,6 @@ def adapt_simplification(T, s_i):
             LB = lb + LB
             UB = ub + UB
             T.set_bounds(LB, UB)
-            print(LB, UB, new_action_branch)
             return LB, UB, new_action_branch
 
 def compare_children(T, s_i):
@@ -85,7 +80,6 @@ def compare_children(T, s_i):
     """
     mean_bounds = []
     child_nodes = T.get_all_children()
-    print("iterating through children")
     for child in child_nodes:
         LB, UB, _ = adapt_simplification(child, s_i)
         child.set_bounds(lb=LB, ub=UB)
@@ -104,14 +98,19 @@ def prune_children(T):
     If we still have many candidate children:
         False, None
     """
-    print("prune_children running")
     child_nodes = T.get_all_children()
-    LB_star = max(child.get_lower_bound() for child in child_nodes)
-    print("LB_star", LB_star)
+    #first remove risky states
+    risky_prune = []
+    for child in child_nodes:
+        if child.get_risky_state() == True:
+            print("pruning child: risky state")
+        else:
+            risky_prune.append(child)
+    LB_star = max(child.get_lower_bound() for child in risky_prune)
     pruned_children = []
     for child in child_nodes:
         if LB_star > child.get_upper_bound():
-            print("pruning child")
+            print("pruning child: LB_star > UB")   
         else:
             pruned_children.append(child)
     T.update_children(pruned_children)

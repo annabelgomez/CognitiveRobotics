@@ -14,7 +14,7 @@ def add_nodes_edges(graph, node):
         # Leaf node, draw a doublecircle
         graph.node(str(node.get_bounds_as_tuple()), shape='circle')
     elif node.is_head_node():
-        graph.node("Head Node", shape='doublecirlce')
+        graph.node("Head Node", shape='doublecircle')
     else:
         # Internal node, draw a circle
         graph.node(str(node.get_bounds_as_tuple()), shape='circle')
