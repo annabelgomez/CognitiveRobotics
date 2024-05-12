@@ -1,8 +1,8 @@
 // Belief Tree
 digraph {
 	"Head Node" [shape=doublecircle]
-	"Head Node" -> "(14.68, 14.68)" [label="action: 1"]
-	"(14.68, 14.68)" [shape=circle]
-	"(14.68, 14.68)" -> "(12.88, 12.88)" [label="action: 0"]
-	"(12.88, 12.88)" [shape=circle]
+	"Head Node" -> "(16.54, 16.54)" [label="action: 0"]
+	"(16.54, 16.54)" [shape=circle]
+	"(16.54, 16.54)" -> "(15.0, 15.0)" [label="action: 0"]
+	"(15.0, 15.0)" [shape=circle]
 }

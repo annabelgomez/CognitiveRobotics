@@ -6,7 +6,7 @@ def find_optimal_policy(T):
     """
     Wrapper function for computing optimal policy given head node T.
     """
-    s = 10
+    s = 50
     return adapt_simplification(T, s)
 
 def adapt_simplification(T, s_i):
@@ -14,6 +14,7 @@ def adapt_simplification(T, s_i):
     Adapt simplification function. Recurses to simplify tree and return
     optimal action sequence and the bounds.
     """
+    print("s_i", s_i)
     pf_new = ParticleFilter(T.particles.copy(), T.weights.copy())
     _, _, indices = pf_new.simplify(s_i)
 
@@ -107,8 +108,9 @@ def prune_children(T):
         else:
             risky_prune.append(child)
     LB_star = max(child.get_lower_bound() for child in risky_prune)
+    # print("LB_star",LB_star)
     pruned_children = []
-    for child in child_nodes:
+    for child in risky_prune:
         if LB_star > child.get_upper_bound():
             print("pruning child: LB_star > UB")   
         else:
@@ -153,4 +155,5 @@ def calculate_bounds(x_new, w_new, indices, action, observation, x_s_old, w_s_ol
     a = np.log(sum(pf.observation_model(x_i, observation) * w_i for x_i, w_i in zip(x_new, w_new)) + eps)
     if upper_bound < lower_bound:
         lower_bound = upper_bound
+    # print("calculate_bounds",lower_bound, upper_bound)
     return lower_bound + a, upper_bound + a

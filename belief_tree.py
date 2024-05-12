@@ -181,10 +181,18 @@ class ParticleFilter:
         self.weights /= np.sum(self.weights)
 
     def simplify(self, num_simplified_particles):
-        if num_simplified_particles == len(self.particles):
-            indices = list(range(len(self.particles)))
-            return self.particles.copy(), self.weights.copy(), indices
-        indices = np.random.choice(len(self.particles), size=num_simplified_particles, replace=False, p=self.weights)
+        num_particles = len(self.particles)
+        num_simplified_particles = min(num_simplified_particles, num_particles)  # Ensure we do not exceed the number of particles
+        non_zero_weights = self.weights > 0
+        num_non_zero_weights = np.sum(non_zero_weights)
+        
+        if num_non_zero_weights < num_simplified_particles:
+            # Option 2: Assign a small non-zero probability to zero-weight particles
+            adjusted_weights = np.where(self.weights > 0, self.weights, 1e-10)
+            adjusted_weights /= adjusted_weights.sum()
+        else:
+            adjusted_weights = self.weights
+        indices = np.random.choice(num_particles, size=num_simplified_particles, replace=False, p=adjusted_weights)
         simplified_particles = self.particles[indices]
         simplified_weights = self.weights[indices]
         simplified_weights /= np.sum(simplified_weights)
